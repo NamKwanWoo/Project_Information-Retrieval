@@ -35,18 +35,19 @@ public:
         if (this->readFile.fail() || this->writeFile.fail())
         {
             cout << "Error!" << endl;
-            getchar();
+            exit(-1);
         }
     }
 
     void set_StopWord()
     {
-        stopWord_File.open("StopWord.txt");
+        stopWord_File.open("/Users/namnamnam/Search_Information/StopWord.txt");
         string str;
 
         while (getline(stopWord_File, str))
+        {
             stop_Word.insert(str);
-
+        }
         stopWord_File.close();
     }
 
@@ -54,73 +55,78 @@ public:
     {
         string str;
         int lineCheck = CHECK::END;
-		int lowercase = CHECK::END;
+        int lowercase = CHECK::END;
 
-		/*Line by Line*/
-		while (getline(readFile, str))
+        /*Line by Line*/
+        while (getline(readFile, str))
         {
             /*Start Parsing*/
-            if (str.find("<DOCNO>") != string::npos || str.find("<HEADLINE>") != string::npos || str.find("<TEXT>") != string::npos)
+            if (str.find("<DOCNO>") != string::npos || str.find("<HEADLINE>") != string::npos ||
+                str.find("<TEXT>") != string::npos)
                 lineCheck = CHECK::START;
-			
-			/*Start converting string to lowerCase*/
-			if(str.find("</TEXT>") != string::npos || str.find("</HEADLINE>") != string::npos)
-				lowercase = CHECK::END;
 
-			/*Unnecessary Line*/
-            if (!lineCheck)
+            /*Start converting string to lowerCase*/
+            if (str.find("</TEXT>") != string::npos || str.find("</HEADLINE>") != string::npos)
+                lowercase = CHECK::END;
+
+            /*Unnecessary Line*/
+            if (str.compare("<P>") == 0 || str.compare("</P>") == 0 || !lineCheck)
                 continue;
 
-			/*Necessary Line*/
-			else
+                /*Necessary Line*/
+            else
             {
-				/*Converting Tolowercase*/
-				if(lowercase == CHECK::LOWERCASE)
-					for(unsigned int i = 0; i < str.length(); ++i) 
-						str[i] = tolower(str[i]);
+                /*Converting Tolowercase*/
+
+                //for(unsigned int i = 0; i < str.length(); ++i) 
+                //str[i] = tolower(str[i]);
 
                 set<string>::iterator iter;
-				char* buf = strdup(str.c_str());
-                char *token = strtok(buf, " ,.-\t");
+                char *buf = strdup(str.c_str());
+                if (lowercase == CHECK::LOWERCASE)
+                    strlwr(buf);
+                char *token = strtok(buf, " ,.'-\t");
 
-				/*Start Tokenizing*/
-				while(token != NULL)
-				{
-					string convert_token = token;
-					iter = stop_Word.find(convert_token);
 
-					/*If token is not stopword*/
-					if (iter == stop_Word.end())
-					{
-						cout << convert_token << " ";
-						writeFile << convert_token;
-						writeFile << " ";
-					}
-					token = strtok(NULL, " ,.-\t");
-				}
+                /*Start Tokenizing*/
+                while (token != NULL)
+                {
+                    string convert_token = token;
+                    iter = stop_Word.find(convert_token);
 
-				cout << endl;
-				writeFile << "\n";
-							
-				/*End converting string to lowerCase*/
-				if(str.find("<TEXT>") != string::npos || str.find("<HEADLINE>") != string::npos)
-					lowercase = CHECK::LOWERCASE;
+                    /*If token is not stopword*/
+                    if (iter == stop_Word.end())
+                    {
+                        //cout << convert_token << " ";
+                        writeFile << convert_token;
+                        writeFile << " ";
+                    }
+                    token = strtok(NULL, " ,.'-\t");
+                }
+
+                //cout << endl;
+                writeFile << "\n";
+
+                /*End converting string to lowerCase*/
+                if (str.find("<TEXT>") != string::npos || str.find("<HEADLINE>") != string::npos)
+                    lowercase = CHECK::LOWERCASE;
             }
 
             /*End Parsing*/
-            if (str.find("</DOCNO>") != string::npos || str.find("</HEADLINE>") != string::npos || str.find("</TEXT>") != string::npos)
+            if (str.find("</DOCNO>") != string::npos || str.find("</HEADLINE>") != string::npos ||
+                str.find("</TEXT>") != string::npos)
                 lineCheck = CHECK::END;
-			
+
         }
 
-		/*Close output!!!  Necessary!!*/
+        /*Close output!!!  Necessary!!*/
         writeFile.close();
     }
 };
 
 int main(void)
 {
-    File file("a.txt", "sibal1.txt");
+    File file("/Users/namnamnam/Search_Information/19980601_NYT", "/Users/namnamnam/Search_Information/sibal1.txt");
     file.set_StopWord();
     file.Parsing();
 
