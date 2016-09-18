@@ -1,10 +1,13 @@
+#pragma warning(disable:4996)
+
 #include <iostream>
 #include <string>
 #include <set>
 #include <cstring>
 #include <fstream>
 #include <sstream>
-
+#include <time.h>
+#include "Porter2.h"
 using namespace std;
 
 namespace CHECK
@@ -22,6 +25,8 @@ private:
     ifstream stopWord_File;
     ofstream writeFile;
 
+	string str;
+
     set<string> origin_Word;
     set<string> stop_Word;
     set<string> parsed_Word;
@@ -31,29 +36,21 @@ public:
     {
         this->readFile.open(readFile);
         this->writeFile.open(writeFile);
+		this->stopWord_File.open("StopWord.txt");
 
-        if (this->readFile.fail() || this->writeFile.fail())
+		if (this->readFile.fail() || this->writeFile.fail() || this->stopWord_File.fail())
         {
             cout << "Error!" << endl;
             exit(-1);
         }
+
+        while (getline(this->stopWord_File, str))
+            this->stop_Word.insert(str);
+        this->stopWord_File.close();
     }
 
-    void set_StopWord()
+    inline void Parsing()
     {
-        stopWord_File.open("/Users/namnamnam/Search_Information/StopWord.txt");
-        string str;
-
-        while (getline(stopWord_File, str))
-        {
-            stop_Word.insert(str);
-        }
-        stopWord_File.close();
-    }
-
-    void Parsing()
-    {
-        string str;
         int lineCheck = CHECK::END;
         int lowercase = CHECK::END;
 
@@ -73,20 +70,13 @@ public:
             if (str.compare("<P>") == 0 || str.compare("</P>") == 0 || !lineCheck)
                 continue;
 
-                /*Necessary Line*/
+            /*Necessary Line*/
             else
             {
-                /*Converting Tolowercase*/
-
-                //for(unsigned int i = 0; i < str.length(); ++i) 
-                //str[i] = tolower(str[i]);
-
                 set<string>::iterator iter;
-                char *buf = strdup(str.c_str());
-                if (lowercase == CHECK::LOWERCASE)
-                    strlwr(buf);
-                char *token = strtok(buf, " ,.'-\t");
 
+				char *buf = strdup(str.c_str());
+                char *token = strtok(buf, " ,.`-\t");
 
                 /*Start Tokenizing*/
                 while (token != NULL)
@@ -98,13 +88,20 @@ public:
                     if (iter == stop_Word.end())
                     {
                         //cout << convert_token << " ";
+						//Porter2Stemmer::stem(convert_token);
+						/*Converting Tolowercase*/
+
+						if (lowercase == CHECK::LOWERCASE)
+						{
+							strlwr(token);
+							convert_token = token;
+						}
+						
                         writeFile << convert_token;
                         writeFile << " ";
                     }
-                    token = strtok(NULL, " ,.'-\t");
+                    token = strtok(NULL, " ,.`-\t");
                 }
-
-                //cout << endl;
                 writeFile << "\n";
 
                 /*End converting string to lowerCase*/
@@ -116,9 +113,7 @@ public:
             if (str.find("</DOCNO>") != string::npos || str.find("</HEADLINE>") != string::npos ||
                 str.find("</TEXT>") != string::npos)
                 lineCheck = CHECK::END;
-
         }
-
         /*Close output!!!  Necessary!!*/
         writeFile.close();
     }
@@ -126,10 +121,24 @@ public:
 
 int main(void)
 {
-    File file("/Users/namnamnam/Search_Information/19980601_NYT", "/Users/namnamnam/Search_Information/sibal1.txt");
-    file.set_StopWord();
-    file.Parsing();
+	clock_t begin, end;
+	begin = clock();
 
-    getchar();
+	for(auto i=1; i<2; i++)
+	{
+		string str = "199806";
+		if(i<10)
+			str += "0" + to_string(i) + "_NYT";
+		else
+			str += to_string(i) + "_NYT";
+
+		File file(str, "sibal1.txt");
+		file.Parsing();
+	}
+
+	end = clock();
+	cout << "Time:  " << ((end-begin)/(CLOCKS_PER_SEC)) << "sec" << endl;
+
+	getchar();
     return 0;
 }
