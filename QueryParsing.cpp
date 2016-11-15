@@ -224,6 +224,8 @@ void vectorSpaceModel()
 	map<string, vector<int> >::iterator word_Iter;
 	vector<int> inner;
 
+
+	string query_Index;
 	string index, conv;
 	int startposition, indexNum,DF, count = 1;
 	long double doc_ID, weight;
@@ -232,49 +234,13 @@ void vectorSpaceModel()
 	wordDat.open("Word.txt");
 	docuDat.open("doc_dat.txt");
 
+	ofstream dummy;
+	dummy.open("dummy.txt");
+
 	/* indexdata =  indexNumber, <document_ID, weight, document_ID, weigth...>*/
 	/* Worddata =  Index,  [indexNum, StartPosition]*/
-	/*
-	cout << "Start Parsing!" << endl;
-	while (getline(indexDat, str))
-	{
-		if (str.find("TF") != string::npos)
-			continue;
-
-		char *buf = strdup(str.c_str());
-		char *token = strtok(buf, "\t");
-		count = 1;
-
-		while (token != NULL)
-		{
-			conv = token;
-
-			if (count == 1)
-				indexNum = atoi(conv.c_str());
-			else if (count == 2)
-				doc_ID = atof(conv.c_str());
-			else if (count == 4)
-				weight = atof(conv.c_str());
-
-			count++;
-			token = strtok(NULL, "\t");
-		}
-		index_inner.push_back(doc_ID);
-		index_inner.push_back(weight);
-
-		cout << indexNum << "  Insert....\t" << doc_ID << " " << weight << endl;
-
-		pr = indexdata.insert(pair<int, vector<long double> >(indexNum, index_inner));
-		if (pr.second != true)
-		{
-			index_Iter = indexdata.find(indexNum);
-			index_Iter->second.push_back(doc_ID);
-			index_Iter->second.push_back(weight);
-		}
-	}
-	cout << "End Parsing!" << endl;
-	*/
-
+	
+	/*Get Word Data    Index, [indexNum, startposition]*/
 	while (getline(wordDat, str))
 	{
 		if (str.find("Index") != string::npos)
@@ -307,47 +273,85 @@ void vectorSpaceModel()
 		inner.clear();
 	}
 	
-	string query_Index;
+	
 	/* Worddata =  Index,  [indexNum, DF,  StartPosition]*/
 	/*Query_Number,   map<string, int>  (term, tf, term, tf .....) */
 	for (map_Iter = query_Vector.begin(); map_Iter != query_Vector.end(); ++map_Iter)
 	{
-		map<int, int> document;
-		map<int, int>::iterator docu_Iter;
+		map<int, vector<long double> > document;								/*Document_ID,   (Term_ID, weight, Term_ID, weight, Term_ID, weight....)*/
+		map<int, vector<long double> >::iterator docu_Iter;
+		pair < map<int, vector<long double> >::iterator, bool> expression;
+		vector<long double> vector_ID;
+		vector<long double>::iterator vec_Iter;
+
 		int outCount = 1;
 
 		/*Get Similarity Start*/
 		cout << "Query #: " << map_Iter->first << endl;
 
+		/* Index in query by index,   key = query term,  value = query term frequency*/
 		for (inner_Iter = map_Iter->second.begin(); inner_Iter != map_Iter->second.end(); ++inner_Iter, outCount++)
 		{
 			query_Index = inner_Iter->first;   /*Query Term*/
 			if(outCount == 1)
 				continue;
 
-			cout << "Query_Index: " << query_Index << endl;
-
 			word_Iter = Worddata.find(query_Index);
+
 			indexNum = word_Iter->second[0];
 			DF = word_Iter->second[1];
 			startposition = word_Iter->second[2];
-			cout << "Word_Index: " << word_Iter->first << " " << indexNum << " " << DF << " " << startposition << endl;
-
-			long long count = 0;
+			
+			/*MAP document:    ==>       Document_ID,   (Term_ID, weight, Term_ID, weight, Term_ID, weight....)*/
+			/*query_Index ==  current Term*/
 			while (getline(indexDat, str))
 			{
-				if (str.find("TF") != string::npos)
-					continue;
+				char *buf = strdup(str.c_str());
+				char *token = strtok(buf, "\t");				/*Index ID*/
+				int docu_ID;
+				long double weight;
 
-				if (count == startposition + DF)
+				conv = token;											/*Index ID*/
+
+				if (atoi(conv.c_str()) > indexNum)				/*End position*/
 					break;
-				count++;
-			}
-			fflush(stdin);
+					
+				if (atoi(conv.c_str()) == indexNum)			/*<--   Start Position  by index_ID*/
+				{
+					token = strtok(NULL, "\t");					/*Document ID*/
+					string inconv = token;							/*Document ID*/
+					docu_ID = atoi(inconv.c_str());				/*Document ID*/
+					
+					token = strtok(NULL, "\t");					/*TF */
+					token = strtok(NULL, "\t");					/*Weight*/
+					inconv = token;									/*Weight*/
+					weight = atof(inconv.c_str());				/*Weight*/
 
-			cout << count << endl;
-			cout << endl;
+					vector_ID.push_back(indexNum);
+					vector_ID.push_back(weight);
+					
+					expression = document.insert(pair<int, vector<long double> >(docu_ID, vector_ID));			/*Insert map = document_ID, <indexID, Weight>*/
+
+					if (expression.second != true)
+					{
+						docu_Iter = document.find(docu_ID);							// Document_ID
+						docu_Iter->second.push_back(indexNum);					// Index_ID
+						docu_Iter->second.push_back(weight);						// Weight
+						//cout << "Same document! and then vector size is  " << docu_Iter->second.size() << "\n";
+					}
+					vector_ID.clear();
+				}
+				
+			}
 		}
+		cout << "END" << endl;
+
+		/*=============================================Attention=============================================*/
+		/*		map<int, vector<long double> > document;			--->		Document_ID,   (Term_ID, weight, Term_ID, weight, Term_ID, weight....)*/
+		/*     Key = Document_ID (int)  ////////    Value = <vector> -->  <Term_ID, Weight, Term_ID, Weight, Term_ID, Weight...>*/
+		/*     	query_Index = inner_Iter->first;   Query Term*/
+
+		
 	}
 
 }
@@ -359,7 +363,5 @@ int main(void)
 	Get_QueryVector();
 	vectorSpaceModel();
 
-	long long dd = 86403464;
-	cout << dd << endl;
 	getchar();
  }
