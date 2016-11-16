@@ -146,6 +146,8 @@ void QueryParsing()
 		parsedTopic << "\n";
 	}
 	parsedTopic << "===========END===========";
+	queryDOC.close();
+	parsedTopic.close();
 }
 
 void Get_QueryVector()
@@ -208,6 +210,16 @@ void Get_QueryVector()
 		}
 		queryVectorFile << endl;
 	}
+	queryFile.close();
+	queryVectorFile.close();
+}
+
+std::fstream& GotoLine(std::fstream& file, unsigned int num) {
+	file.seekg(std::ios::beg);
+	for (int i = 0; i < num - 1; ++i) {
+		file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	}
+	return file;
 }
 
 void vectorSpaceModel()
@@ -224,13 +236,11 @@ void vectorSpaceModel()
 	map<string, vector<int> >::iterator word_Iter;
 	vector<int> inner;
 
-
 	string query_Index;
-	string index, conv;
-	int startposition, indexNum,DF, count = 1;
+	string index, conv, inconv;
+	int startposition, indexNum,DF, count = 1, query_TF;
 	long double doc_ID, weight;
 
-	indexDat.open("Index.txt");
 	wordDat.open("Word.txt");
 	docuDat.open("doc_dat.txt");
 
@@ -240,7 +250,6 @@ void vectorSpaceModel()
 	/* indexdata =  indexNumber, <document_ID, weight, document_ID, weigth...>*/
 	/* Worddata =  Index,  [indexNum, StartPosition]*/
 	
-	/*Get Word Data    Index, [indexNum, startposition]*/
 	while (getline(wordDat, str))
 	{
 		if (str.find("Index") != string::npos)
@@ -273,28 +282,35 @@ void vectorSpaceModel()
 		inner.clear();
 	}
 	
+	map<long,  vector< long double> > document;								/*Docu_ID,   (weight1, weight2, weight3....)*/
+	map<long, vector< long double> >::iterator docu_Iter;
+	pair < map<long, vector< long double> >::iterator, bool> expression;
+	vector<long double> vector_ID;
+	vector<long double>::iterator vec_Iter;
 	
 	/* Worddata =  Index,  [indexNum, DF,  StartPosition]*/
 	/*Query_Number,   map<string, int>  (term, tf, term, tf .....) */
 	for (map_Iter = query_Vector.begin(); map_Iter != query_Vector.end(); ++map_Iter)
 	{
-		map<int, vector<long double> > document;								/*Document_ID,   (Term_ID, weight, Term_ID, weight, Term_ID, weight....)*/
-		map<int, vector<long double> >::iterator docu_Iter;
-		pair < map<int, vector<long double> >::iterator, bool> expression;
-		vector<long double> vector_ID;
-		vector<long double>::iterator vec_Iter;
+		document.clear();
+		vector_ID.clear();
 
 		int outCount = 1;
-
+		int num_of_Query_term = 0;
 		/*Get Similarity Start*/
 		cout << "Query #: " << map_Iter->first << endl;
+		indexDat.open("Index.txt");
 
 		/* Index in query by index,   key = query term,  value = query term frequency*/
 		for (inner_Iter = map_Iter->second.begin(); inner_Iter != map_Iter->second.end(); ++inner_Iter, outCount++)
 		{
-			query_Index = inner_Iter->first;   /*Query Term*/
-			if(outCount == 1)
+			query_Index = inner_Iter->first;					/*Query Index*/
+			query_TF = inner_Iter->second;					/*Query Term Frequency*/
+
+			if(outCount == 1)			
 				continue;
+			
+			cout << "Query_Index: " << query_Index << "\tQuery_TF: " << query_TF << endl;
 
 			word_Iter = Worddata.find(query_Index);
 
@@ -302,57 +318,59 @@ void vectorSpaceModel()
 			DF = word_Iter->second[1];
 			startposition = word_Iter->second[2];
 			
-			/*MAP document:    ==>       Document_ID,   (Term_ID, weight, Term_ID, weight, Term_ID, weight....)*/
+			/*MAP document:    ==>       Term_ID,   (Docu_ID, weight), Docu_ID, weight, Docu_ID, weight....)*/
 			/*query_Index ==  current Term*/
+
 			while (getline(indexDat, str))
 			{
 				char *buf = strdup(str.c_str());
 				char *token = strtok(buf, "\t");				/*Index ID*/
-				int docu_ID;
+				long  docu_ID;
 				long double weight;
 
 				conv = token;											/*Index ID*/
 
 				if (atoi(conv.c_str()) > indexNum)				/*End position*/
 					break;
-					
 				if (atoi(conv.c_str()) == indexNum)			/*<--   Start Position  by index_ID*/
 				{
 					token = strtok(NULL, "\t");					/*Document ID*/
-					string inconv = token;							/*Document ID*/
+					inconv = token;							/*Document ID*/
 					docu_ID = atoi(inconv.c_str());				/*Document ID*/
-					
-					token = strtok(NULL, "\t");					/*TF */
+						
+					token = strtok(NULL, "\t");					/*TF */				
 					token = strtok(NULL, "\t");					/*Weight*/
-					inconv = token;									/*Weight*/
+					inconv = token;									/*Weight*/			
 					weight = atof(inconv.c_str());				/*Weight*/
 
-					vector_ID.push_back(indexNum);
 					vector_ID.push_back(weight);
-					
-					expression = document.insert(pair<int, vector<long double> >(docu_ID, vector_ID));			/*Insert map = document_ID, <indexID, Weight>*/
+					expression = document.insert(pair<long, vector<long double> >(docu_ID, vector_ID));			/*Insert map = Document_ID, <weight1, weigth2>*/
 
 					if (expression.second != true)
 					{
-						docu_Iter = document.find(docu_ID);							// Document_ID
-						docu_Iter->second.push_back(indexNum);					// Index_ID
-						docu_Iter->second.push_back(weight);						// Weight
-						//cout << "Same document! and then vector size is  " << docu_Iter->second.size() << "\n";
+						docu_Iter = document.find(docu_ID);
+						docu_Iter->second.push_back(weight);
 					}
+
+					conv.clear();
 					vector_ID.clear();
 				}
-				
 			}
+			num_of_Query_term++;
 		}
-		cout << "END" << endl;
 
+		indexDat.close();
+		cout << "\nNumber of Query:  " << num_of_Query_term << "\n\n";
+		
 		/*=============================================Attention=============================================*/
 		/*		map<int, vector<long double> > document;			--->		Document_ID,   (Term_ID, weight, Term_ID, weight, Term_ID, weight....)*/
 		/*     Key = Document_ID (int)  ////////    Value = <vector> -->  <Term_ID, Weight, Term_ID, Weight, Term_ID, Weight...>*/
 		/*     	query_Index = inner_Iter->first;   Query Term*/
-
-		
 	}
+}
+
+void BM25()
+{
 
 }
 
@@ -362,6 +380,7 @@ int main(void)
 	//QueryParsing();
 	Get_QueryVector();
 	vectorSpaceModel();
+
 
 	getchar();
  }
